@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<launch>
+<node name="tactile_return2zero" pkg="tactilesensors4" type="tactile_return2zero.py">
+</node>
+<node name="polldata4" pkg="tactilesensors4" type="PollData4">
+</node>
+</launch>
