@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python#!/usr/bin/env python
 
 from std_srvs.srv import Trigger,TriggerResponse
 import rospy
