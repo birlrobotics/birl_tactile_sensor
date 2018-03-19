@@ -50,8 +50,8 @@ def main():
     global pub
     rospy.init_node('tactile_preprocessing')
     rospy.Subscriber("/TactileSensor4/StaticData", StaticData, static_data_preprocessing)
-    rospy.Service('tactile_reset', Trigger, reset)
-    pub = rospy.Publisher('tactile_sensor_data',tactile_static, queue_size=10)
+    rospy.Service('tactile_reset_service', Trigger, reset)
+    pub = rospy.Publisher('/tactile_sensor_data',tactile_static, queue_size=10)
     rospy.spin()
 
 if __name__ == "__main__":
