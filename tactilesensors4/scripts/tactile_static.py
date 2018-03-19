@@ -1,18 +1,32 @@
 #!/usr/bin/env python
+from std_srvs.srv import Trigger,TriggerResponse
 import rospy
 from tactilesensors4.msg import *
 from smach_based_introspection_framework.msg import tactile_static
 import copy,ipdb
 import numpy as np
 
-pub = None
-def static_data_preprocessing(data):
-    global pub
-    taxels1_base_values = np.array([16970, 14215, 18313, 12150, 21927, 16321, 11678, 11854, 27145, 10963, 10929, 10993, 36377, 10492, 10473, 10794, 36170, 11209, 13874, 16319, 11901, 36179, 11369, 16020, 37404, 12054, 11590, 17609])
-    taxels2_base_values = np.array([17777, 14998, 18550, 12515, 22085, 16456, 11742, 12089, 26353, 10498, 10836, 10933, 35987, 10156, 10319, 10717, 35729, 11322, 13837, 15917, 12071, 35630, 11487, 15648, 37144, 12271, 11653, 17458])
+pub   = None
+data0 = None
+data1 = None 
+tmp_0 = 0
+tmp_1 = 0
 
-    taxels1 = np.array(data.taxels[0].values) -  taxels1_base_values
-    taxels2 = np.array(data.taxels[1].values) -  taxels2_base_values
+def reset(req):
+    global pub,tmp_0,tmp_1, data0, data1
+    res = TriggerResponse()
+    tmp_0 = copy.deepcopy(data0)
+    tmp_1 = copy.deepcopy(data1)
+    return res 
+
+def static_data_preprocessing(data):
+    global pub, tmp_0, tmp_1, data0, data1
+
+    data0 = data.taxels[0].values
+    data1 = data.taxels[1].values
+
+    taxels1 = np.array(data0) -  np.array(tmp_0)
+    taxels2 = np.array(data1) -  np.array(tmp_1)
 
     taxels1_sorted = np.sort(taxels1)
     taxels2_sorted = np.sort(taxels2)
@@ -36,6 +50,7 @@ def main():
     global pub
     rospy.init_node('tactile_preprocessing')
     rospy.Subscriber("/TactileSensor4/StaticData", StaticData, static_data_preprocessing)
+    rospy.Service('tactile_reset', Trigger, reset)
     pub = rospy.Publisher('tactile_sensor_data',tactile_static, queue_size=10)
     rospy.spin()
 
