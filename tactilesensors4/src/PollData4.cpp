@@ -91,6 +91,7 @@ rosrun tactilesensors PollData [-device PATH_TO_DEV]
 #include <sys/time.h>
 #include <math.h>
 #include <cmath>
+#include "std_srvs/Trigger.h"
 
 //Using std namespace
 using namespace std;
@@ -202,6 +203,65 @@ bool TactileSensorServiceCallback(tactilesensors4::TactileSensors::Request  &req
     return true;
 }
 
+bool do_tactile_static_calibration = false;
+bool tactile_staticCalibrationSrvCallback(
+    std_srvs::Trigger::Request& req,
+	std_srvs::Trigger::Response& res) {
+	ROS_INFO("Begin tactile_static calibration.");
+    
+    do_tactile_static_calibration = true;
+
+    while (do_tactile_static_calibration && ros::ok()) {
+        ROS_INFO("tactile_static calibration not done...waiting");
+        ros::Duration(1).sleep();
+    }
+
+	res.success = true;
+	res.message = std::string("boring message");
+	ROS_INFO("tactile_static calibration done.");
+	return true;
+}
+
+tactilesensors4::StaticData calibrate_static(tactilesensors4::StaticData msg) {
+    static unsigned long offset[56] = {0};
+    static unsigned long acc[56] = {0};
+    static int calibration_sample_count = 0;
+    static const int calibration_sample_amount = 10;
+    static const long new_zero = 10000;
+        
+    if (do_tactile_static_calibration) {
+        if (calibration_sample_count < calibration_sample_amount) {
+            ROS_INFO("tactile_static calibration sampling");
+
+            for (int i = 0; i < 28; i++) {
+                acc[i] += msg.taxels[0].values[i];
+                acc[i+28] += msg.taxels[1].values[i];
+            }
+
+            calibration_sample_count += 1;
+        }
+        else {
+            ROS_INFO("tactile_static calibration setting offsets");
+
+
+            for (int i = 0; i < 28; i++) {
+                offset[i] = acc[i]/calibration_sample_amount-new_zero;
+                offset[i+28] = acc[i+28]/calibration_sample_amount-new_zero;
+                acc[i] = acc[i+28] = 0;
+                ROS_INFO("offset[%d]=%ld, offset[%d]=%ld", i, offset[i], i+28, offset[i+28]);
+            }
+            calibration_sample_count = 0;
+            do_tactile_static_calibration = false;
+        }
+    }
+    
+    for (int i = 0; i < 28; i++) {
+        msg.taxels[0].values[i] -= offset[i];
+        msg.taxels[1].values[i] -= offset[i+28];
+    }
+    return msg;
+}
+
 //Main
 int main(int argc, char **argv)
 {
@@ -212,6 +272,10 @@ int main(int argc, char **argv)
     tactilesensors4::Sensor SensorsData;
     tactilesensors4::Quaternion TheQuaternions;
     ros::Publisher StaticData_pub = n.advertise<tactilesensors4::StaticData>("TactileSensor4/StaticData", 1000);
+    // service used by shuangqi
+	ros::ServiceServer tactile_static_calibration_service = n.advertiseService("robotiq_tactile_static_calibration_service", tactile_staticCalibrationSrvCallback);
+
+
     ros::Publisher Dynamic_pub = n.advertise<tactilesensors4::Dynamic>("TactileSensor4/Dynamic", 1000);
     ros::Publisher Accelerometer_pub = n.advertise<tactilesensors4::Accelerometer>("TactileSensor4/Accelerometer",1000);
     ros::Publisher EulerAngle_pub = n.advertise<tactilesensors4::EulerAngle>("TactileSensor4/EulerAngle",1000);
@@ -250,6 +314,11 @@ int main(int argc, char **argv)
     send.data_length = 1;
     send.data[0] = READ_DATA_PERIOD_MS;
     usbSend(&USB, &send);
+
+
+    // we want to two spin threads, one for each service
+    ros::AsyncSpinner spinner(2);
+    spinner.start();
 
     //Now we enter the ros loop where we will acquire and publish data
     while (ros::ok())
@@ -335,7 +404,7 @@ int main(int argc, char **argv)
                     {
                         // We publish everything:
                         Dynamic_pub.publish(SensorsData.dynamic);
-                        StaticData_pub.publish(SensorsData.staticdata);
+                        StaticData_pub.publish(calibrate_static(SensorsData.staticdata));
                         Accelerometer_pub.publish(SensorsData.accelerometer);
                         Gyroscope_pub.publish(SensorsData.gyroscope);
                         Magnetometer_pub.publish(SensorsData.magnetometer);
@@ -348,7 +417,8 @@ int main(int argc, char **argv)
             }
         }
 
-        ros::spinOnce();    //Refresh publishing buffers
+        // Do do spinOnce since we're using spinner now.
+        // ros::spinOnce();    //Refresh publishing buffers
     }
 
     // Stop auto-send message
@@ -358,6 +428,9 @@ int main(int argc, char **argv)
     usbSend(&USB, &send);
 
     close(USB);  // close and free /dev/ttyACM0 peripheral
+
+    spinner.stop();
+
     return 0;
 }
 
