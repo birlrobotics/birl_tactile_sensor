@@ -403,6 +403,15 @@ int main(int argc, char **argv)
                     if (!StopSensorDataAcquisition)
                     {
                         // We publish everything:
+
+                        SensorsData.header.stamp = ros::Time::now();
+                        SensorsData.dynamic.header.stamp = SensorsData.header.stamp;
+                        SensorsData.staticdata.header.stamp = SensorsData.header.stamp;
+                        SensorsData.accelerometer.header.stamp = SensorsData.header.stamp;
+                        SensorsData.gyroscope.header.stamp = SensorsData.header.stamp;
+                        SensorsData.magnetometer.header.stamp = SensorsData.header.stamp;
+                        SensorsData.eulerangle.header.stamp = SensorsData.header.stamp;
+
                         Dynamic_pub.publish(SensorsData.dynamic);
                         StaticData_pub.publish(calibrate_static(SensorsData.staticdata));
                         Accelerometer_pub.publish(SensorsData.accelerometer);
