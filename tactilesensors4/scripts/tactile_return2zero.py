@@ -20,7 +20,7 @@ def cb(req):
 
 def static_data_cb(data):
     global A,pub,tmp
-    # ipdb.set_trace()
+    ipdb.set_trace()
     A = sum(data.taxels[0].values)+sum(data.taxels[1].values)
     msg = Int64()
     msg.data = A - tmp
@@ -32,6 +32,7 @@ def main():
     rospy.Subscriber("/TactileSensor4/StaticData", StaticData, static_data_cb)
     rospy.Service('tactile_texel_sum_reset', Trigger, cb)
     pub = rospy.Publisher('tactile_texel_sum',Int64, queue_size=10)
+    print("start")
     rospy.spin()
 
 if __name__ == "__main__":
